@@ -1,0 +1,30 @@
+> Write a program in a language of your choice that forks 10 children,
+> where each child simultaneously creates (in parallel) a file where
+> each filename is in the format of <pid>.<unix_epoch> in the current
+> directory and writes their pid to the file, then writes the following
+> string back to the parent via some form of inter-process
+> communication:
+>
+> <pid> <status>
+>
+> 
+>
+> The parent waits on each child and writes a sorted report to stdout
+> for each child:
+>
+> <pid> <status>
+>
+> 
+>
+> Where <pid> should be replaced by process ID and <status> should be
+> replaced by {SUCCESS,FAILURE}. FAILURE should be reported for any
+> error/exception of the child and the specific error messages should go
+> to stderr (parent or children). Exceptions/errors must be caught and
+> handled gracefully.
+>
+> The parent should always write 10 records, one for each child unless
+> the parent itself dies unexpectedly (signal handling of the parent not
+> needed).
+>
+> If you choose Java, use the analogous guidelines in terms of
+> thread-spawning and inter-thread communication.
