@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
   int i, j, k;
   int num_reported;
   pid_t pids[NUM_CHILDREN]; /* array of child pids */ 
-  char results[NUM_CHILDREN][30];
+  char results[NUM_CHILDREN][30]; /* array to store results */
 
   /* 
    * open up our pipe for status messages from child processes
@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
    * wait for the child processes to complete their task
    */
   if(await_children(pids, NUM_CHILDREN) != NUM_CHILDREN) {
-    fprintf(stderr, "Warning: child count doesn't match number forked\n");
+    fprintf(stderr, "Child count doesn't match number forked\n");
   }
 
   /*
@@ -76,17 +76,23 @@ int main(int argc, char** argv) {
   return 0;
 }
 
-int run_child() {
+void run_child() {
   pid_t child_pid = getpid();
   int rv;
+  status_t status = SUCCESS; 
+
+  /* treat pid file writing as non fatal .. */
+  if( (rv = write_pid_to_file(child_pid)) != 0) {
+    fprintf(stderr, "Failed to write pid to file for child %d\n", child_pid);
+    status = FAILURE;
+  }
   
-  rv = write_status_to_file(child_pid);
-  if(rv) {
-    write_status_to_pipe(child_pid, kFailure);
+  /* but not writing the status is fatal */
+  if( (rv = write_status_to_pipe(child_pid, status)) != 0) {
+    fprintf(stderr, "Failed to write status for child %d\n", child_pid);
+    _exit(1);
   }
-  else {
-    write_status_to_pipe(child_pid, kSuccess);
-  }
+
   _exit(0);
 }
 
@@ -117,9 +123,10 @@ int await_children(pid_t pids[], int size_pids) {
   
   for(i = 0; i < size_pids; i++) {
     pid = waitpid(pids[i], &status, 0);
-    if(status != 0) 
+    if(status != 0) {
       fprintf(stderr, "Warning: child %d exited with status %d\n",
 	      (long)pid, status);
+    }
   }
   
   return i;
@@ -137,14 +144,14 @@ int read_results(int fd, char results[][30]) {
   return count;
 }
 
-int write_status_to_file(pid_t child_pid) {
+int write_pid_to_file(pid_t child_pid) {
   
   FILE *file;
   char filename[FILENAME_BUFFER_SIZE];
   time_t current_time = time(NULL);
 
   snprintf(filename, FILENAME_BUFFER_SIZE, "%s/%d.%d", 
-	   FILENAME_LOCATION, (long)current_time, child_pid);
+	   FILENAME_LOCATION, child_pid, (long)current_time);
   
   file = fopen(filename, "w+"); 
   if(file == NULL) {
@@ -161,16 +168,17 @@ int write_status_to_file(pid_t child_pid) {
   return 0;
 }
 
-int write_status_to_pipe(pid_t child_pid, const char* status) {
+int write_status_to_pipe(pid_t child_pid, status_t status) {
   char result[RESULT_MAX_SIZE];
   int fd, printed, ret;
-  //return 1;
+
   if( (fd = open(FIFO_NAME, O_WRONLY) ) < 0) {
     perror("Error opening pipe for writing");
     return 1;
   }
 
-  printed = sprintf(result, "%d %s\n", child_pid, status);  
+  printed = sprintf(result, "%d %s\n", child_pid, 
+		    status == SUCCESS ? kSuccess : kFailure);  
 
   if(write(fd, result, strlen(result)) < printed) {
     perror("Error writing status to pipe");
