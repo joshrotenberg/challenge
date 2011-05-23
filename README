@@ -6,8 +6,8 @@ Click "Downloads" to grab a tarball of the repository.
 
 To build and run:
 
-bash$ tar zxvf joshrotenberg-challenge-2efd879.tar.gz
-bash$ cd joshrotenberg-challenge-2efd879/
+bash$ tar zxvf joshrotenberg-challenge-XXXXXXX.tar.gz
+bash$ cd joshrotenberg-challenge-XXXXXXX/
 bash$ ./configure && make && ./src/challenge
 
 > Write a program in a language of your choice that forks 10 children,
