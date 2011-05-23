@@ -1,8 +1,8 @@
 #include "challenge.h"
 
+#include <stdio.h>
 #include <time.h>
 #include <sys/wait.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -17,8 +17,9 @@ static const char* kFailure = "FAILURE";
 int main(int argc, char** argv) {
 
   int fd; /* fifo pipe fd */
-  int i, j, k;
+  int i, j;
   int num_reported;
+  size_t results_length;
   pid_t pids[NUM_CHILDREN]; /* array of child pids */ 
   char results[NUM_CHILDREN][30]; /* array to store results */
 
@@ -55,22 +56,24 @@ int main(int argc, char** argv) {
   /*
    * read the results from the pipe
    */
-  num_reported = read_results(fd, results);
+  num_reported = read_results(fd, pids, results, NUM_CHILDREN);
   if(num_reported != NUM_CHILDREN) {
     fprintf(stderr, "Not all children reported results\n");
   }
 
+  /* done with the pipe. close and unlink it. */
   close(fd);
+  unlink(FIFO_NAME);
 
   /* 
    * sort results
    */
+  results_length = sizeof(results) / sizeof(results[0]);
+  qsort(&results, results_length, sizeof(results[0]), compare_results);
 
-  size_t results_len = sizeof(results) / sizeof(results[0]);
-  qsort(&results, results_len, sizeof(results[0]), compare_results);
-
-  for(k = 0; k < num_reported; k++) {
-    fprintf(stderr, "%s", results[k]);
+  /* report the results to stdout. we've left the \n on the end. */
+  for(j = 0; j < results_length; j++) {
+    printf("%s", results[j]);
   }
 
   return 0;
@@ -79,7 +82,7 @@ int main(int argc, char** argv) {
 void run_child() {
   pid_t child_pid = getpid();
   int rv;
-  status_t status = SUCCESS; 
+  status_t status = SUCCESS; /* optimistic */
 
   /* treat pid file writing as non fatal .. */
   if( (rv = write_pid_to_file(child_pid)) != 0) {
@@ -117,14 +120,13 @@ int open_pipe() {
 }
 
 int await_children(pid_t pids[], int size_pids) {
-
   pid_t pid;
   int status, i;
   
   for(i = 0; i < size_pids; i++) {
     pid = waitpid(pids[i], &status, 0);
     if(status != 0) {
-      fprintf(stderr, "Warning: child %d exited with status %d\n",
+      fprintf(stderr, "Warning: child %ld exited with status %d\n",
 	      (long)pid, status);
     }
   }
@@ -132,25 +134,56 @@ int await_children(pid_t pids[], int size_pids) {
   return i;
 }
 
-int read_results(int fd, char results[][30]) {
+int read_results(int fd, pid_t pids[], char results[][30], int expected) {
   FILE* f;
   int count = 0;
   f = fdopen(fd, "r");
 
+  /* 
+   * read all of the results from pipe. they are handily newline delimited,
+   * so fgets does the job of splitting them up.
+   */
   while( (fgets(results[count], 30, f) != NULL)) {
     count++;
   }
 
+  /* 
+   * if the count doesn't match, one or more children didn't write their 
+   * results for some unknown reason. add them as failures.
+   */
+  if(count < expected) {
+    int i;
+
+    /* iterate through our known pids */
+    for(i = 0; i < expected; i++) {
+      int j;
+      char spid[24];
+      int found = 0;
+      sprintf(spid, "%d", pids[i]);
+
+      /* and search the results to see if this pid is present. */
+      for(j = 0; j < count; j++) {
+	if( strncmp(results[j], spid, strlen(spid)) == 0) {
+	  found = 1;
+	  break;
+	}
+      }
+
+      /* didn't find it. add it to the results as a failure. */
+      if(found == 0)
+	sprintf(results[count++], "%s %s\n", spid, kFailure); 
+      
+    }
+  }
   return count;
 }
 
 int write_pid_to_file(pid_t child_pid) {
-  
   FILE *file;
   char filename[FILENAME_BUFFER_SIZE];
   time_t current_time = time(NULL);
 
-  snprintf(filename, FILENAME_BUFFER_SIZE, "%s/%d.%d", 
+  snprintf(filename, FILENAME_BUFFER_SIZE, "%s/%d.%ld", 
 	   FILENAME_LOCATION, child_pid, (long)current_time);
   
   file = fopen(filename, "w+"); 
@@ -159,7 +192,7 @@ int write_pid_to_file(pid_t child_pid) {
     return 1;
   }
 
-  if( (fprintf(file, "%d", (long)child_pid)) < 1) {
+  if( (fprintf(file, "%ld", (long)child_pid)) < 1) {
     perror("Error printing pid to status file");
     return 1;
   }
@@ -170,7 +203,7 @@ int write_pid_to_file(pid_t child_pid) {
 
 int write_status_to_pipe(pid_t child_pid, status_t status) {
   char result[RESULT_MAX_SIZE];
-  int fd, printed, ret;
+  int fd, printed;
 
   if( (fd = open(FIFO_NAME, O_WRONLY) ) < 0) {
     perror("Error opening pipe for writing");

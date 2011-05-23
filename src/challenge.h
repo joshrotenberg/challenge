@@ -12,7 +12,7 @@
 #define FILENAME_BUFFER_SIZE 255
 #define FILENAME_LOCATION "." 
 #define FIFO_BUFFER_SIZE 255
-#define FIFO_NAME "/tmp/vccc_fifo"
+#define FIFO_NAME "/tmp/challenge_fifo"
 #define RESULT_MAX_SIZE 30 
 
 typedef enum {
@@ -48,14 +48,18 @@ int open_pipe();
 int await_children(pid_t pids[], int size_pids);
 
 /**
- * reads the results from the pipe and populates the array of results
+ * reads the results from the pipe and populates the array of results.
+ * checks that all pids are present, and marks missing reults as failures.
  *
  * @param fd the file descriptor of the pipe from which to read
+ * @param pids our array of known spawned pids
  * @param results the results array in which to copy the child statuses
+ * @param expected the number of results we are expecting
  *
  * @return the number of results read from the pipe
  */
-int read_results(int fd, char results[][RESULT_MAX_SIZE]);
+int read_results(int fd, pid_t pids[], char results[][RESULT_MAX_SIZE], 
+		 int expected);
 
 /**
  * strcmp wrapper for qsort

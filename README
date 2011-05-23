@@ -1,3 +1,15 @@
+Quick and dirty implementation of the below challenge
+specification. Went with plain old C with no outside dependencies
+(aside from gcc/ GNU Autotools for building).
+
+Click "Downloads" to grab a tarball of the repository.
+
+To build and run:
+
+bash$ tar zxvf joshrotenberg-challenge-2efd879.tar.gz
+bash$ cd joshrotenberg-challenge-2efd879/
+bash$ ./configure && make && ./src/challenge
+
 > Write a program in a language of your choice that forks 10 children,
 > where each child simultaneously creates (in parallel) a file where
 > each filename is in the format of <pid>.<unix_epoch> in the current
