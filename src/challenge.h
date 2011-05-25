@@ -20,6 +20,7 @@ typedef enum {
   FAILURE = 1
 } status_t;
 
+
 /*
  * parent functions
  */
@@ -33,9 +34,11 @@ void run_child();
 /**
  * open a pipe for reading child status
  *
+ * @param pipe_name the location of the pipe to create
+ *
  * @return the file descriptor associated with the pipe
  */
-int open_pipe(); 
+int open_pipe(const char *pipe_name); 
 
 /**
  * wait for children to exit
@@ -45,27 +48,19 @@ int open_pipe();
  *
  * @return the number of child processes waited for
  */
-int await_children(const pid_t pids[], const int size_pids);
+int await_children(const pid_t pids[], int size_pids);
 
 /**
- * reads the results from the pipe and populates the array of results.
- * checks that all pids are present, and marks missing reults as failures.
+ * reads the results from the pipe outputs the results.
  *
  * @param fd the file descriptor of the pipe from which to read
  * @param pids our array of known spawned pids
- * @param results the results array in which to copy the child statuses
  * @param expected the number of results we are expecting
  *
  * @return the number of results read from the pipe
  */
-int read_results(const int fd, const pid_t pids[], 
-		 char results[][RESULT_MAX_SIZE], const int expected);
-
-/**
- * strcmp wrapper for qsort
- *
- */
-static int compare_results(const void *a, const void *b);
+int read_and_print_results(const int fd, const pid_t pids[], 
+			   const int expected);
 
 /*
  * child functions

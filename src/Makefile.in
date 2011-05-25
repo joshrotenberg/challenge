@@ -50,7 +50,7 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_challenge_OBJECTS = challenge.$(OBJEXT)
+am_challenge_OBJECTS = challenge.$(OBJEXT) list.$(OBJEXT)
 challenge_OBJECTS = $(am_challenge_OBJECTS)
 challenge_LDADD = $(LDADD)
 AM_V_lt = $(am__v_lt_$(V))
@@ -199,7 +199,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CFLAGS = -g -pedantic -Wall
-challenge_SOURCES = challenge.c
+challenge_SOURCES = challenge.c list.c
 all: all-am
 
 .SUFFIXES:
@@ -288,6 +288,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/challenge.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/list.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

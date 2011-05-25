@@ -1,4 +1,5 @@
 #include "challenge.h"
+#include "list.h"
 
 #include <stdio.h>
 #include <time.h>
@@ -17,20 +18,18 @@ static const char* kFailure = "FAILURE";
 int main(int argc, char** argv) {
 
   int fd; /* fifo pipe fd */
-  int i, j;
+  int i;
   int num_reported;
-  size_t results_length;
   pid_t pids[NUM_CHILDREN]; /* array of child pids */ 
-  char results[NUM_CHILDREN][30]; /* array to store results */
 
   /* 
    * open up our pipe for status messages from child processes
    */ 
-  if( (fd = open_pipe()) < 0) {
+  if( (fd = open_pipe(FIFO_NAME)) < 0) {
     exit(-1);
   }
-
-  /*
+  
+   /*
    * start up the children, and hang on to the pids
    */
   for (i = 0; i < NUM_CHILDREN; ++i) {
@@ -56,7 +55,8 @@ int main(int argc, char** argv) {
   /*
    * read the results from the pipe
    */
-  num_reported = read_results(fd, pids, results, NUM_CHILDREN);
+
+  num_reported = read_and_print_results(fd, pids, NUM_CHILDREN);
   if(num_reported != NUM_CHILDREN) {
     fprintf(stderr, "Not all children reported results\n");
   }
@@ -64,17 +64,6 @@ int main(int argc, char** argv) {
   /* done with the pipe. close and unlink it. */
   close(fd);
   unlink(FIFO_NAME);
-
-  /* 
-   * sort results
-   */
-  results_length = sizeof(results) / sizeof(results[0]);
-  qsort(&results, results_length, sizeof(results[0]), compare_results);
-
-  /* report the results to stdout. we've left the \n on the end. */
-  for(j = 0; j < results_length; j++) {
-    printf("%s", results[j]);
-  }
 
   return 0;
 }
@@ -99,10 +88,10 @@ void run_child() {
   _exit(0);
 }
 
-int open_pipe() {
+int open_pipe(const char *pipe_name) {
   int fd, rv;
 
-  rv = mkfifo(FIFO_NAME, 0666);
+  rv = mkfifo(pipe_name, 0666);
   if ((rv == -1) && (errno != EEXIST)) {
     perror("Error creating the named pipe");
     return rv;
@@ -122,7 +111,7 @@ int open_pipe() {
 int await_children(const pid_t pids[], const int size_pids) {
   pid_t pid;
   int status, i;
-  
+
   for(i = 0; i < size_pids; i++) {
     pid = waitpid(pids[i], &status, 0);
     if(status != 0) {
@@ -134,35 +123,29 @@ int await_children(const pid_t pids[], const int size_pids) {
   return i;
 }
 
-int read_results(const int fd, const pid_t pids[], char results[][30], 
-		 const int expected) {
+int read_and_print_results(const int fd, const pid_t pids[], 
+			   const int expected) {
   FILE* f;
-  int count = 0;
+  result_node *list;
+  char line[1024];
+  int list_size; 
+
+  list = NULL;
   f = fdopen(fd, "r");
 
   /* 
    * read all of the results from pipe. they are handily newline delimited,
    * so fgets does the job of splitting them up.
    */
-
-  
-  for(count = 0; count < expected; count++) {
-    /* 
-     * if we don't have any more data but we haven't met the expected quota
-     * someone didn't report. break out and it will be handled below 
-     */
-    if(fgets(results[count], 30, f) == NULL) {
-      fprintf(stderr, "Expected %d but only found %d results\n",
-	      expected, count);
-      break;
-    }
-  }
+  while( (fgets(line, 1024, f)) != NULL)
+    list = list_insert_sorted(list, line);
 
   /* 
    * if the count doesn't match, one or more children didn't write their 
    * results for some unknown reason. add them as failures.
    */
-  if(count < expected) {
+  list_size = list_count(list);
+  if(list_count(list) < expected) {
     int i;
 
     /* iterate through our known pids */
@@ -171,22 +154,29 @@ int read_results(const int fd, const pid_t pids[], char results[][30],
       char spid[24];
       int found = 0;
       sprintf(spid, "%d", pids[i]);
-
-      /* and search the results to see if this pid is present. */
-      for(j = 0; j < count; j++) {
-	if( strncmp(results[j], spid, strlen(spid)) == 0) {
+      
+      /* and search the list to see if this pid is present. */
+      for(j = 0; j < list_size; j++) {
+	if(list_find(list, spid) != NULL) {
 	  found = 1;
 	  break;
 	}
       }
 
       /* didn't find it. add it to the results as a failure. */
-      if(found == 0)
-	sprintf(results[count++], "%s %s\n", spid, kFailure); 
-      
+      if(found == 0)  {
+	char fail[30];
+	sprintf(fail, "%s %s\n", spid, kFailure); 
+	list = list_insert_sorted(list, fail);
+      }
     }
   }
-  return count;
+
+  list_print(list);
+
+  list_free(list);
+
+  return list_size;
 }
 
 int write_pid_to_file(const pid_t child_pid) {
@@ -216,9 +206,9 @@ int write_status_to_pipe(const pid_t child_pid, const status_t status) {
   char result[RESULT_MAX_SIZE];
   int fd, printed;
 
-  /* XXX: simulate failures */
+  /* XXX: uncomment below to simulate failures */
   /*
-  if(child_pid % 3 == 0)
+  if(child_pid % 4 == 0)
     return 1;
   */
 
@@ -238,11 +228,4 @@ int write_status_to_pipe(const pid_t child_pid, const status_t status) {
 
   close(fd);
   return 0;
-}
-
-static int compare_results(const void *a, const void *b) {
-  const char* sa = (const char *)a;
-  const char* sb = (const char *)b;
-
-  return strcmp(sa, sb);
 }
