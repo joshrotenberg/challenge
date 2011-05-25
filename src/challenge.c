@@ -119,7 +119,7 @@ int open_pipe() {
   return fd;
 }
 
-int await_children(pid_t pids[], int size_pids) {
+int await_children(const pid_t pids[], const int size_pids) {
   pid_t pid;
   int status, i;
   
@@ -134,7 +134,8 @@ int await_children(pid_t pids[], int size_pids) {
   return i;
 }
 
-int read_results(int fd, pid_t pids[], char results[][30], int expected) {
+int read_results(const int fd, const pid_t pids[], char results[][30], 
+		 const int expected) {
   FILE* f;
   int count = 0;
   f = fdopen(fd, "r");
@@ -188,7 +189,7 @@ int read_results(int fd, pid_t pids[], char results[][30], int expected) {
   return count;
 }
 
-int write_pid_to_file(pid_t child_pid) {
+int write_pid_to_file(const pid_t child_pid) {
   FILE *file;
   char filename[FILENAME_BUFFER_SIZE];
   time_t current_time = time(NULL);
@@ -211,7 +212,7 @@ int write_pid_to_file(pid_t child_pid) {
   return 0;
 }
 
-int write_status_to_pipe(pid_t child_pid, status_t status) {
+int write_status_to_pipe(const pid_t child_pid, const status_t status) {
   char result[RESULT_MAX_SIZE];
   int fd, printed;
 

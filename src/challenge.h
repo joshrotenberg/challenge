@@ -45,7 +45,7 @@ int open_pipe();
  *
  * @return the number of child processes waited for
  */
-int await_children(pid_t pids[], int size_pids);
+int await_children(const pid_t pids[], const int size_pids);
 
 /**
  * reads the results from the pipe and populates the array of results.
@@ -58,8 +58,8 @@ int await_children(pid_t pids[], int size_pids);
  *
  * @return the number of results read from the pipe
  */
-int read_results(int fd, pid_t pids[], char results[][RESULT_MAX_SIZE], 
-		 int expected);
+int read_results(const int fd, const pid_t pids[], 
+		 char results[][RESULT_MAX_SIZE], const int expected);
 
 /**
  * strcmp wrapper for qsort
@@ -78,7 +78,7 @@ static int compare_results(const void *a, const void *b);
  *
  * @return 0 on success
  */
-int write_pid_to_file(pid_t pid);
+int write_pid_to_file(const pid_t pid);
 
 /**
  * writes the process status to the pipe
@@ -88,6 +88,6 @@ int write_pid_to_file(pid_t pid);
  *
  * @return returns 0 on success
  */
-int write_status_to_pipe(pid_t pid, status_t status);
+int write_status_to_pipe(const pid_t pid, const status_t status);
 
 #endif
