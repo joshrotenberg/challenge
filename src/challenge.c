@@ -143,8 +143,18 @@ int read_results(int fd, pid_t pids[], char results[][30], int expected) {
    * read all of the results from pipe. they are handily newline delimited,
    * so fgets does the job of splitting them up.
    */
-  while( (fgets(results[count], 30, f) != NULL)) {
-    count++;
+
+  
+  for(count = 0; count < expected; count++) {
+    /* 
+     * if we don't have any more data but we haven't met the expected quota
+     * someone didn't report. break out and it will be handled below 
+     */
+    if(fgets(results[count], 30, f) == NULL) {
+      fprintf(stderr, "Expected %d but only found %d results\n",
+	      expected, count);
+      break;
+    }
   }
 
   /* 
@@ -204,6 +214,12 @@ int write_pid_to_file(pid_t child_pid) {
 int write_status_to_pipe(pid_t child_pid, status_t status) {
   char result[RESULT_MAX_SIZE];
   int fd, printed;
+
+  /* XXX: simulate failures */
+  /*
+  if(child_pid % 3 == 0)
+    return 1;
+  */
 
   if( (fd = open(FIFO_NAME, O_WRONLY) ) < 0) {
     perror("Error opening pipe for writing");
